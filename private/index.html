@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DBCL · BI V4</title>
+<meta name="description" content="Gestão do escritório: carteira, operação e confiança dos dados.">
+<meta name="color-scheme" content="light">
+<script src="vendor/chart.umd.js"></script>
+
+<link rel="stylesheet" href="styles/base.css">
+<link rel="stylesheet" href="styles/v4.css">
+</head>
+<body>
+
+<!-- ═══════════ SIDEBAR ═══════════ -->
+<nav class="sb">
+  <div class="sb-logo" onclick="go('painel')"><div class="d">dbcl</div><div class="s">Inteligência de gestão · V4</div></div>
+  <div class="sb-body">
+    <button class="sb-btn active" data-s="painel" onclick="go('painel')"><span class="sb-dot" style="background:var(--neon)"></span>Visão dos Sócios<span class="sb-badge" id="sb-alert-n" style="display:none"></span></button>
+    <div class="sb-sec">Produtividade</div>
+    <button class="sb-btn" data-s="times" onclick="go('times')"><span class="sb-dot" style="background:#64B5F6"></span>Times</button>
+    <button class="sb-btn" data-s="areas" onclick="go('areas')"><span class="sb-dot" style="background:#80CBC4"></span>Áreas &amp; Clusters</button>
+    <button class="sb-btn" data-s="socios" onclick="go('socios')"><span class="sb-dot" style="background:#0F6E56"></span>Sócios nas Frentes</button>
+    <button class="sb-btn" data-s="heatmap" onclick="go('heatmap')"><span class="sb-dot" style="background:#F9A825"></span>Mapa de Calor</button>
+    <button class="sb-btn" data-s="pessoas" onclick="go('pessoas')"><span class="sb-dot" style="background:#A5D6A7"></span>Pessoas</button>
+    <div class="sb-sec">Lucratividade</div>
+    <button class="sb-btn" data-s="mensalistas" onclick="go('mensalistas')"><span class="sb-dot" style="background:#CE93D8"></span>Mensalistas</button>
+    <button class="sb-btn" data-s="projetos" onclick="go('projetos')"><span class="sb-dot" style="background:#80CBC4"></span>Projetos &amp; Avulsos</button>
+    <button class="sb-btn" data-s="judicial" onclick="go('judicial')"><span class="sb-dot" style="background:#EF9A9A"></span>Judicial</button>
+    <div class="sb-sec">Negócio</div>
+    <button class="sb-btn" data-s="decisoes" onclick="go('decisoes')"><span class="sb-dot" style="background:#C6FF00"></span>Central de Decisões</button>
+    <button class="sb-btn" data-s="portfolio" onclick="go('portfolio')"><span class="sb-dot" style="background:#FFCC80"></span>Saúde do Portfólio</button>
+    <button class="sb-btn" data-s="auditoria" onclick="go('auditoria')"><span class="sb-dot" style="background:#EF5350"></span>Auditoria da Base<span class="sb-badge" id="sb-audit-n" style="display:none"></span></button>
+    <div class="sb-sec">Cadastros</div><button class="sb-btn" data-s="cadastros" onclick="go('cadastros')"><span class="sb-dot"></span>Pessoas e tarifas</button><button class="sb-btn" data-s="contratos" onclick="go('contratos')"><span class="sb-dot"></span>Cadastro de mensalistas</button><div class="sb-sec">Ferramentas de gestão</div>
+<button class="sb-btn" data-s="explorar" onclick="go('explorar')"><span class="sb-dot"></span>Explorar carteira</button>
+<button class="sb-btn" data-s="simular" onclick="go('simular')"><span class="sb-dot"></span>Simular mensalistas</button>
+<button class="sb-btn" data-s="confianca" onclick="go('confianca')"><span class="sb-dot"></span>Confiança e fontes</button>
+<div class="sb-sec">Buscar</div>
+    <button class="sb-btn" onclick="toggleList('pl',this)"><span class="sb-dot" style="background:#A5D6A7"></span>Pessoas <span style="margin-left:auto;font-size:10px">▾</span></button>
+    <div class="sb-list" id="pl"><div class="sb-list-search"><input placeholder="Buscar pessoa..." oninput="filterList('pl',this.value)"></div><div id="pl-items"></div></div>
+    <button class="sb-btn" onclick="toggleList('cl',this)"><span class="sb-dot" style="background:#FFE082"></span>Clientes <span style="margin-left:auto;font-size:10px">▾</span></button>
+    <div class="sb-list" id="cl"><div class="sb-list-search"><input placeholder="Buscar cliente..." oninput="filterList('cl',this.value)"></div><div id="cl-items"></div></div>
+    <button class="sb-btn" onclick="toggleList('sl',this)"><span class="sb-dot" style="background:#FFAB91"></span>Serviços <span style="margin-left:auto;font-size:10px">▾</span></button>
+    <div class="sb-list" id="sl"><div class="sb-list-search"><input placeholder="Buscar serviço..." oninput="filterList('sl',this.value)"></div><div id="sl-items"></div></div>
+  </div>
+  <div class="sb-foot" id="sb-per"></div>
+</nav>
+
+<a class="skip-link" href="#main-content">Pular para o conteúdo</a>
+<main class="main" id="main-content">
+<header class="workspace-header"><div class="workspace-title"><button class="mobile-menu" onclick="document.body.classList.toggle('nav-open')" aria-label="Abrir navegação">☰</button><span>GESTÃO DO ESCRITÓRIO</span><b>DBCL <span class="version">V4</span></b></div><div class="workspace-actions"><button class="search-trigger" onclick="openSearch()">Buscar clientes, pessoas e serviços <kbd>⌘ K</kbd></button><button class="btn" onclick="exportExecutive()">Exportar resumo</button><button class="btn" onclick="window.print()" aria-label="Imprimir a visão atual">Imprimir</button></div></header>
+
+<!-- ═══════════ TOPBAR ═══════════ -->
+<div class="topbar">
+  <span class="tb-label">Período</span>
+  <div class="period-control">
+    <div class="period-granularity" id="period-btns">
+      <button class="pq active" data-kind="month" onclick="setPeriodKind('month',this)">Mês</button>
+      <button class="pq" data-kind="quarter" onclick="setPeriodKind('quarter',this)">Trimestre</button>
+      <button class="pq" data-kind="semester" onclick="setPeriodKind('semester',this)">Semestre</button>
+      <button class="pq" data-kind="year" onclick="setPeriodKind('year',this)">Ano</button>
+      <button class="pq" data-kind="custom" onclick="setPeriodKind('custom',this)">Personalizado</button>
+      <button class="pq" data-kind="all" onclick="setPeriodKind('all',this)">Histórico</button>
+    </div>
+    <select class="period-select" id="period-select" aria-label="Escolha o período" onchange="applyPeriodChoice()"></select>
+    <div class="custom-period" id="custom-period">
+      <select class="period-select" id="period-start" aria-label="Mês inicial" onchange="applyCustomPeriod()"></select>
+      <span class="tb-label">até</span>
+      <select class="period-select" id="period-end" aria-label="Mês final" onchange="applyCustomPeriod()"></select>
+    </div>
+  </div>
+  <span class="period-note" id="period-note"></span>
+  <span class="tb-sep">|</span>
+  <span class="tb-label">Carteira</span>
+  <div class="portfolio-toggle">
+    <button class="portfolio-btn active" data-carteira="ativos" onclick="setCarteira('ativos')">Ativos</button>
+    <button class="portfolio-btn" data-carteira="inativos" onclick="setCarteira('inativos')">Inativos</button>
+    <button class="portfolio-btn" data-carteira="todos" onclick="setCarteira('todos')">Todos</button>
+  </div>
+  <div class="rate-toggle">
+    <button class="rt-btn" data-rt="custo" onclick="setRate('custo')">Custo</button>
+    <button class="rt-btn active" data-rt="mensal" onclick="setRate('mensal')">Mensal</button>
+    <button class="rt-btn" data-rt="pontual" onclick="setRate('pontual')">Pontual</button>
+  </div>
+  <span class="rt-note" id="rt-note">Valor técnico pela tabela mensal</span>
+</div>
+
+<div class="context-strip" id="global-context" aria-live="polite"></div><div id="v4-context" class="v4-context" aria-live="polite"></div>
+
+<!-- ═══════════ PAINEL GERAL ═══════════ -->
+<section class="screen active" id="screen-painel">
+  <div class="command-hero">
+    <div class="command-top"><div class="command-copy"><div class="command-eyebrow">Resultados e prioridades</div><div class="command-title" id="pg-saud">Visão dos sócios</div><div class="command-lede" id="pg-sub"></div></div><div class="command-health" id="pg-health"><i></i><span>calculando integridade</span></div></div>
+    <div class="command-metrics" id="pg-kpis"></div>
+  </div>
+  <div class="command-grid">
+    <div class="command-panel"><div class="command-panel-head"><div><h2>Prioridades do período</h2><p>priorizadas por impacto econômico e risco</p></div><span>Agora</span></div><div class="decision-list" id="pg-decisions"></div></div>
+    <div class="command-panel"><div class="command-panel-head"><div><h2>Teses estratégicas</h2><p>Subir · Aprofundar · Industrializar</p></div><span>2027—2029</span></div><div class="thesis-list" id="pg-exec"></div></div>
+  </div>
+  <div class="section-kicker"><span>Sinais críticos</span></div>
+  <div class="alerts" id="pg-alerts"></div>
+  <div class="section-kicker"><span>Análises operacionais</span></div>
+  <div class="ops-grid">
+    <div class="panel"><div class="ph2"><span class="t">Horas do escritório · evolução</span><span class="s">total vs. em clientes</span></div><div class="pb"><div class="cw"><canvas id="c-pg-horas"></canvas></div></div></div>
+    <div class="panel"><div class="ph2"><span class="t">Mensalistas · receita vs. custo por mês</span><span class="s lk" onclick="go('mensalistas')">ver detalhe →</span></div><div class="pb"><div class="cw"><canvas id="c-pg-marg"></canvas></div></div></div>
+  </div>
+  <div class="ops-grid">
+    <div class="panel"><div class="ph2"><span class="t">Onde o dinheiro está · top 10 clientes por receita</span><span class="s lk" onclick="go('portfolio')">saúde do portfólio →</span></div><div class="pb" id="pg-conc"></div></div>
+    <div class="panel"><div class="ph2"><span class="t">Atenção imediata · piores margens mensalistas</span><span class="s lk" onclick="go('mensalistas')">ver todos →</span></div><div class="pb ow"><table class="t" id="pg-worst"></table></div></div>
+  </div>
+</section>
+
+<!-- ═══════════ TIMES ═══════════ -->
+<section class="screen" id="screen-times">
+  <div class="ph">
+    <div><h1>Times</h1><p>Três times oficiais: Trabalhista, Contencioso e Consultivo</p></div>
+    <div class="toggle-group">
+      <button class="tgl active" onclick="tmTgl('sem',this)">Sem sócios</button>
+      <button class="tgl" onclick="tmTgl('com',this)">Com sócios</button>
+    </div>
+  </div>
+  <div class="kg kg4" id="t-kpis"></div>
+  <div class="g2">
+    <div class="panel"><div class="ph2"><span class="t">Horas por time · mês a mês</span></div><div class="pb"><div class="cw"><canvas id="c-tm"></canvas></div></div></div>
+    <div class="panel"><div class="ph2"><span class="t">Composição por prioridade</span><span class="s">inclui horas ADM dos advogados</span></div><div class="pb" id="t-bars"></div></div>
+  </div>
+  <div class="panel"><div class="ph2"><span class="t">Tabela de times</span></div><div class="pb ow"><table class="t" id="t-table"></table></div></div>
+</section>
+
+<!-- ═══════════ ÁREAS & CLUSTERS ═══════════ -->
+<section class="screen" id="screen-areas">
+  <div class="ph"><div><h1>Áreas &amp; Clusters</h1><p>Horas por área do direito, natureza da pasta e cluster de prioridade</p></div></div>
+  <div class="note" id="ar-rule"></div>
+  <div class="kg kg4" id="ar-kpis"></div>
+  <div class="g2">
+    <div class="panel"><div class="ph2"><span class="t">Evolução das principais áreas</span><span class="s">mês a mês</span></div><div class="pb"><div class="cw"><canvas id="c-ar-evo"></canvas></div></div></div>
+    <div class="panel"><div class="ph2"><span class="t">Frentes de trabalho</span><span class="s">natureza do Themis × área do CRM</span></div><div class="pb"><div class="cw"><canvas id="c-ar-front"></canvas></div></div></div>
+  </div>
+  <div class="panel"><div class="ph2"><span class="t">Lucratividade recorrente por frente</span><span class="s">receita mensal rateada pelas horas das vendas e serviços inclusos da mesma frente</span></div><div class="pb ow"><table class="t" id="ar-profit"></table><div class="note" style="margin-top:10px">A margem considera somente a carteira recorrente, cuja receita possui competência mensal. Projetos e processos continuam nas horas totais, mas não recebem receita presumida.</div></div></div>
+  <div class="panel"><div class="ph2"><span class="t">Conferência das classificações</span><span class="s">rastreabilidade por cliente, pasta e código de venda</span></div><div class="pb">
+    <div class="audit-tools"><input class="audit-search" id="ar-audit-search" type="search" placeholder="Buscar cliente, serviço, pasta, código, área ou frente…" oninput="renderFrontAudit()"><select class="audit-select" id="ar-audit-filter" onchange="renderFrontAudit()"><option value="todos">Todos os status</option><option value="Revisar">Somente revisar</option><option value="Confirmado">Confirmados no Themis + CRM</option><option value="Assistido">Classificação assistida</option><option value="Legado">Histórico Eleven</option><option value="Interno">Interno DBCL</option></select><span class="audit-filter-status" id="ar-audit-status"></span><button class="audit-export" onclick="downloadFrontAudit()">Baixar CSV</button></div>
+    <div class="ow"><table class="t" id="ar-audit-table"></table></div>
+    <div class="note" style="margin-top:10px">Confirmado = Caso/Processo no Themis e área no CRM. Assistido = uma das dimensões veio de regra explícita complementar. Revisar = lacuna de área ou fallback histórico de baixa confiança.</div>
+  </div></div>
+  <div class="panel"><div class="ph2"><span class="t">Detalhamento por área e cluster</span><span class="s">cluster = prioridade do CRM</span></div><div class="pb ow"><table class="t" id="ar-table"></table></div></div>
+</section>
+
+<!-- ═══════════ SÓCIOS NAS FRENTES ═══════════ -->
+<section class="screen" id="screen-socios">
+  <div class="ph"><div><h1>Sócios nas Frentes</h1><p>Participação, concentração e valor das horas dos sócios no período selecionado</p></div></div>
+  <div class="note" id="so-note"></div>
+  <div class="kg kg4" id="so-kpis"></div>
+  <div class="g2">
+    <div class="panel"><div class="ph2"><span class="t">Sócios × equipe</span><span class="s">evolução mensal</span></div><div class="pb"><div class="cw"><canvas id="c-so-evo"></canvas></div></div></div>
+    <div class="panel"><div class="ph2"><span class="t">Participação por frente</span><span class="s">todas as pessoas distribuídas pela mesma regra</span></div><div class="pb"><div class="cw"><canvas id="c-so-front"></canvas></div></div></div>
+  </div>
+  <div class="g2">
+    <div class="panel"><div class="ph2"><span class="t">Dependência de sócios por frente</span></div><div class="pb ow"><table class="t" id="so-front-table"></table></div></div>
+    <div class="panel"><div class="ph2"><span class="t">Composição entre os sócios</span><span class="s">clique no nome para abrir o detalhe</span></div><div class="pb ow"><table class="t" id="so-person-table"></table></div></div>
+  </div>
+</section>
+
+<!-- ═══════════ HEATMAP ═══════════ -->
+<section class="screen" id="screen-heatmap">
+  <div class="ph"><div><h1>Mapa de Calor</h1><p>% do tempo por sinaleira vs. benchmark · ⬇ abaixo · ⬆ acima · clique para detalhe</p></div></div>
+  <div class="fb" id="hm-filters"></div>
+  <div class="leg">
+    <div class="le"><div class="ld" style="background:var(--vc)"></div>Vermelho</div>
+    <div class="le"><div class="ld" style="background:var(--ac)"></div>Amarelo</div>
+    <div class="le"><div class="ld" style="background:var(--gc)"></div>Verde</div>
+    <div class="le"><div class="ld" style="background:var(--dc)"></div>Admin</div>
+  </div>
+  <div class="panel ow"><table class="t" id="hm-tbl">
+    <thead><tr>
+      <th style="width:18%">Colaborador</th><th style="width:14%">Função · Time</th>
+      <th style="width:7%;text-align:center">Total h</th>
+      <th style="width:13%;text-align:center">🔴</th><th style="width:13%;text-align:center">🟡</th>
+      <th style="width:13%;text-align:center">🟢</th><th style="width:13%;text-align:center">⬜</th>
+      <th style="width:9%">Barra</th>
+    </tr></thead>
+    <tbody id="hm-body"></tbody>
+  </table></div>
+  <div class="det" id="hm-det"></div>
+</section>
+
+<!-- ═══════════ PESSOAS ═══════════ -->
+<section class="screen" id="screen-pessoas">
+  <div class="ph"><div><h1>Pessoas</h1><p>Ranking e evolução individual · clique em qualquer nome para o detalhe</p></div></div>
+  <div class="g2">
+    <div class="panel"><div class="ph2"><span class="t">Top 15 em horas · por sinaleira</span><span class="s">um nome por barra</span></div><div class="pb"><div class="cw rank15"><canvas id="c-p-rank"></canvas></div></div></div>
+    <div class="panel"><div class="ph2"><span class="t">Evolução mensal do escritório</span></div><div class="pb"><div class="cw t"><canvas id="c-p-evo"></canvas></div></div></div>
+  </div>
+  <div class="panel"><div class="ph2"><span class="t">Horas por pessoa × mês</span><span class="s">clique para abrir o perfil</span></div><div class="pb ow"><table class="t" id="p-table"></table></div></div>
+</section>
+
+<!-- ═══════════ MENSALISTAS ═══════════ -->
+<section class="screen" id="screen-mensalistas">
+  <div class="ph"><div><h1>Mensalistas</h1><p>Receita × custo técnico · inclui horas de serviços inclusos no mensal</p></div></div>
+  <div class="kg kg4" id="m-kpis"></div>
+  <div class="g2 rankwide">
+    <div class="panel"><div class="ph2"><span class="t">10 piores e 10 melhores margens</span><span class="s">um cliente por barra · extremos do período</span></div><div class="pb"><div class="cw rank20"><canvas id="c-m-rank"></canvas></div></div></div>
+    <div class="panel"><div class="ph2"><span class="t">Receita × custo</span><span class="s">tamanho = horas · cor = margem</span></div><div class="pb"><div class="cw t"><canvas id="c-m-scat"></canvas></div></div></div>
+  </div>
+  <div class="fb" id="m-filters"></div>
+  <div class="panel ow"><table class="t">
+    <thead><tr>
+      <th onclick="mSort('cli')">Cliente</th><th>Resp.</th>
+      <th class="r" onclick="mSort('rec_m')">Rec./mês</th><th class="r" onclick="mSort('rec_tot')">Total</th>
+      <th class="r" onclick="mSort('h_tot')">H escopo</th><th class="r">H mensal</th><th class="r">H inclusos</th>
+      <th class="r" onclick="mSort('custo')">Custo</th><th class="r" onclick="mSort('margem')">Margem</th><th class="r" onclick="mSort('mpct')">%</th>
+      <th>Tendência</th>
+    </tr></thead>
+    <tbody id="m-body"></tbody>
+  </table></div>
+</section>
+
+<!-- ═══════════ PROJETOS ═══════════ -->
+<section class="screen" id="screen-projetos"><div class="note">Horas e seleção de serviços respeitam o período. A leitura econômica compara valores contratuais com o valor técnico de todo o histórico disponível. Não representa receita ou lucro realizado no período; êxito é contingente.</div>
+  <div class="ph"><div><h1>Projetos &amp; Avulsos</h1><p>Apenas contratos ativos · excluídos inclusos no mensal</p></div></div>
+  <div class="kg kg4" id="pr-kpis"></div>
+  <div class="g2">
+    <div class="panel"><div class="ph2"><span class="t">Top 12 margem bruta</span></div><div class="pb"><div class="cw t"><canvas id="c-pr-top"></canvas></div></div></div>
+    <div class="panel"><div class="ph2"><span class="t">Receita × custo</span></div><div class="pb"><div class="cw t"><canvas id="c-pr-scat"></canvas></div></div></div>
+  </div>
+  <div class="fb" id="pr-filters"></div>
+  <div class="panel ow"><table class="t">
+    <thead><tr>
+      <th>Caso</th><th>Cliente</th><th>Resp.</th><th>Área</th>
+      <th class="r" onclick="prSort('rec')">Receita</th><th class="r" onclick="prSort('custo')">Custo</th>
+      <th class="r" onclick="prSort('m')">Margem</th><th class="r" onclick="prSort('mp')">%</th>
+      <th class="r" onclick="prSort('h')">H</th><th class="r" onclick="prSort('rph')">R$/h</th>
+    </tr></thead>
+    <tbody id="pr-body"></tbody>
+  </table></div>
+</section>
+
+<!-- ═══════════ JUDICIAL ═══════════ -->
+<section class="screen" id="screen-judicial"><div class="note">Horas e seleção de serviços respeitam o período. A leitura econômica compara valores contratuais com o valor técnico de todo o histórico disponível. Não representa receita ou lucro realizado no período; êxito é contingente.</div>
+  <div class="ph"><div><h1>Judicial</h1><p>Break-even por processo · apenas ativos · excluídos inclusos no mensal</p></div></div>
+  <div class="note"><strong>Como ler:</strong> Entrada = honorários não contingentes · Custo acum. = horas × valor/hora · Break-even = êxito mínimo para cobrir o déficit · Margem total = entrada + êxito est. − custo.</div>
+  <div class="kg kg4" id="j-kpis"></div>
+  <div class="g2">
+    <div class="panel"><div class="ph2"><span class="t">Custo vs. entrada · top 20 por custo</span><span class="s">um processo por barra</span></div><div class="pb"><div class="cw rank20"><canvas id="c-j-top"></canvas></div></div></div>
+    <div class="panel"><div class="ph2"><span class="t">Posição de cada processo</span><span class="s">cor = status</span></div><div class="pb"><div class="cw t"><canvas id="c-j-scat"></canvas></div></div></div>
+  </div>
+  <div class="fb" id="j-filters"></div>
+  <div class="panel ow"><table class="t">
+    <thead><tr>
+      <th>Processo</th><th>Cliente</th><th>Resp.</th>
+      <th class="r" onclick="jSort('e')">Entrada</th><th class="r" onclick="jSort('ca')">Custo ac.</th>
+      <th class="r" onclick="jSort('mse')">Marg. s/êxito</th><th class="r" onclick="jSort('be')">Break-even</th>
+      <th class="r" onclick="jSort('x')">Êxito est.</th><th class="r" onclick="jSort('mt')">Marg. total</th>
+      <th>Status</th>
+    </tr></thead>
+    <tbody id="j-body"></tbody>
+  </table></div>
+</section>
+
+<!-- ═══════════ PORTFOLIO ═══════════ -->
+<section class="screen" id="screen-portfolio">
+  <div class="ph"><div><h1>Saúde do Portfólio</h1><p>Valor econômico observado, risco operacional e potencial informado</p></div></div>
+  <div class="kg kg4" id="pf-kpis"></div>
+  <div class="panel"><div class="ph2"><span class="t">Matriz executiva · margem × atenção operacional</span><span class="s">clique num ponto ou cliente para abrir o Cliente 360°</span></div><div class="pb"><div class="pf-quadrants" id="pf-quadrants"></div><div class="cw t"><canvas id="c-pf-matrix"></canvas></div><div class="note">O eixo econômico usa a margem recorrente do período. O índice de atenção (0–100) considera concentração da equipe, uso de sócios, horas sem código, volume e receita zero. Potencial comercial só aparece quando informado por uma decisão estratégica.</div></div></div>
+  <div class="panel"><div class="ph2"><span class="t">Agenda executiva da carteira</span><span class="s">prioridade combina perda econômica e risco operacional</span></div><div class="pb ow"><table class="t" id="pf-priority"></table></div></div>
+  <div class="g2">
+    <div class="panel"><div class="ph2"><span class="t">Concentração de receita mensal</span><span class="s">% da carteira de mensalistas</span></div><div class="pb" id="pf-conc"></div></div>
+    <div class="panel"><div class="ph2"><span class="t">Mensalistas em margem negativa</span><span class="s">consumindo valor</span></div><div class="pb ow"><table class="t" id="pf-neg"></table></div></div>
+  </div>
+  <div class="g2">
+    <div class="panel"><div class="ph2"><span class="t">Clientes pagantes sem atividade no período</span><span class="s">churn risk ou margem livre</span></div><div class="pb ow"><table class="t" id="pf-idle"></table></div></div>
+    <div class="panel"><div class="ph2"><span class="t">Clientes com horas e receita zero</span><span class="s">separa decisão documentada de pendência</span></div><div class="pb ow"><table class="t" id="pf-norec"></table></div></div>
+  </div>
+</section>
+
+<!-- ═══════════ CENTRAL DE DECISÕES ═══════════ -->
+<section class="screen" id="screen-decisoes">
+  <div class="ph"><div><h1>Central de Decisões</h1><p>Agenda dos sócios · contexto, responsável, vigência e revisão em um só lugar</p></div><button class="audit-export" onclick="downloadStrategicDecisions()">Baixar decisões CSV</button></div>
+  <div class="kg kg4" id="dc-kpis"></div>
+  <div class="note"><b>Como funciona:</b> registros oficiais são versionados no GitHub; registros criados no Cliente 360 ficam identificados como “Este navegador” até a consolidação. A recomendação só é assimilada enquanto a decisão estiver ativa e dentro da vigência.</div>
+  <div class="fb">
+    <button class="fb-btn" onclick="setDecisionFilter('all',this)">Todas</button>
+    <button class="fb-btn active" onclick="setDecisionFilter('open',this)">Abertas</button>
+    <button class="fb-btn" onclick="setDecisionFilter('overdue',this)">Revisão atrasada</button>
+    <button class="fb-btn" onclick="setDecisionFilter('undated',this)">Cadastro incompleto</button>
+    <button class="fb-btn" onclick="setDecisionFilter('completed',this)">Encerradas</button>
+  </div>
+  <div class="panel"><div class="ph2"><span class="t">Registro de decisões estratégicas</span><span class="s" id="dc-count"></span></div><div class="pb ow"><table class="t" id="dc-table"></table></div></div>
+</section>
+
+<!-- ═══════════ AUDITORIA ═══════════ -->
+<section class="screen" id="screen-auditoria">
+  <div class="ph"><div><h1>Auditoria da Base</h1><p>Pendências para corrigir nas planilhas e no Themis · os totais são conciliados a cada atualização</p></div></div>
+  <div class="audit-band" id="au-summary"></div>
+  <div class="kg kg4" id="au-kpis"></div>
+  <div class="note" id="au-status"></div>
+  <div class="audit-tools"><input class="audit-search" id="au-search" type="search" placeholder="Buscar cliente, pessoa, código, pasta ou problema…" oninput="filterAuditDetails(this.value)"><span class="audit-filter-status" id="au-filter-status"></span><button class="audit-export" onclick="clearAuditFilter()">Limpar busca</button><button class="audit-export" onclick="downloadAuditDetails()">Baixar detalhes CSV</button></div>
+  <div class="panel"><div class="ph2"><span class="t">Fila operacional priorizada</span><span class="s">clique numa linha para abrir o detalhe · responsáveis são sugestões de fluxo, não atribuições pessoais</span><button class="audit-export" onclick="downloadAuditQueue()">Baixar resumo CSV</button></div><div class="pb ow"><table class="t" id="au-queue"></table></div></div>
+  <div class="panel" id="au-sec-codigos"><div class="ph2"><span class="t">Códigos de venda não conciliados</span><span class="s">histórico da base · corrigir código/pasta no Themis ou cadastrar a venda no CRM</span></div><div class="pb ow"><table class="t audit-detail-table" id="au-codigos"></table></div></div>
+  <div class="panel" id="au-sec-duplicados"><div class="ph2"><span class="t">Lançamentos possivelmente duplicados</span><span class="s">somente o período selecionado · conferir na origem antes de excluir</span></div><div class="pb ow"><table class="t audit-detail-table" id="au-duplicados"></table></div></div>
+  <div class="g2">
+    <div class="panel" id="au-sec-mensal"><div class="ph2"><span class="t">Mensalistas com receita zero no período</span><span class="s">corrigir a fonte ou confirmar o contexto estratégico</span></div><div class="pb ow"><table class="t audit-detail-table" id="au-mensal"></table></div></div>
+    <div class="panel" id="au-sec-crm"><div class="ph2"><span class="t">Células essenciais vazias no CRM</span><span class="s">somente contratos ativos</span></div><div class="pb ow"><table class="t audit-detail-table" id="au-crm"></table></div></div>
+  </div>
+  <div class="g2">
+    <div class="panel" id="au-sec-pessoas"><div class="ph2"><span class="t">Cargos sem valor de hora</span><span class="s">validação da tabela de referência por cargo</span></div><div class="pb ow"><table class="t audit-detail-table" id="au-pessoas"></table></div></div>
+    <div class="panel" id="au-sec-pastas"><div class="ph2"><span class="t">Pastas ambíguas</span><span class="s">histórico · uma pasta associada a mais de um código</span></div><div class="pb ow"><table class="t audit-detail-table" id="au-pastas"></table></div></div>
+  </div>
+  <div class="panel" id="au-sec-orfas"><div class="ph2"><span class="t">Pessoas do Themis sem cadastro correspondente</span><span class="s">histórico · não entram na carteira ativa até o nome ser conciliado</span></div><div class="pb ow"><table class="t audit-detail-table" id="au-pessoas-orfas"></table></div></div>
+</section>
+
+<section class="screen" id="screen-confianca"><div class="ph"><div><h1>Confiança e fontes</h1><p>O que foi conciliado, o que falta e de onde vem cada indicador.</p></div><button class="btn" onclick="exportProvenance()">Baixar rastreabilidade</button></div><div id="trust-content"></div></section>
+<section class="screen" id="screen-explorar"><div class="ph"><div><h1>Explorar carteira</h1><p>Economia recorrente e consumo de todos os serviços por cliente.</p></div><button class="btn" onclick="exportExplore()">Baixar carteira CSV</button></div><div class="tool-row"><label>Buscar cliente<input type="search" id="explore-query" oninput="renderExplore()" placeholder="Nome do cliente"></label><label>Ordenar<select id="explore-sort" onchange="renderExplore()"><option value="margin">Menor margem recorrente</option><option value="revenue">Maior receita recorrente</option><option value="hours">Mais horas</option><option value="name">Nome A–Z</option></select></label><span id="explore-count"></span></div><div class="panel ow"><table class="t" id="explore-table"></table></div></section>
+<section class="screen" id="screen-simular"><div class="ph"><div><h1>Simular mensalistas</h1><p>Teste preço e consumo sobre a carteira selecionada. As premissas não alteram os dados.</p></div><button class="btn" onclick="exportSimulation()">Baixar cenário CSV</button></div><div class="simulation-layout"><div class="panel simulation-controls"><span class="eyebrow">PREMISSAS DO CENÁRIO</span><label>Cliente<select id="sim-client" onchange="calculateSimulation()"></select></label><label>Variação do preço (%)<input id="sim-price" type="number" min="-100" max="500" step="1" value="0" oninput="calculateSimulation()"></label><label>Variação das horas (%)<input id="sim-hours" type="number" min="-100" max="500" step="1" value="0" oninput="calculateSimulation()"></label><label>Margem desejada (%)<input id="sim-target" type="number" min="0" max="95" step="1" value="30" oninput="calculateSimulation()"></label><button class="btn" onclick="resetSimulation()">Zerar variações</button><p>A meta de 30% é uma premissa editável do cenário, sem aprovação registrada. O mix de cargos permanece constante.</p></div><div id="sim-results" aria-live="polite"></div></div></section>
+<section class="screen" id="screen-cadastros"><div class="ph"><div><h1>Pessoas, times e tarifas</h1><p>Cadastro por competência, com histórico de alterações.</p></div></div><div id="cadastro-content"></div></section><section class="screen" id="screen-contratos"><div class="ph"><div><h1>Cadastro de mensalistas</h1><p>Contratos, componentes da mensalidade e valores por vigência.</p></div></div><div id="contract-registry"></div></section></main>
+<dialog class="admin-dialog" id="contract-editor"><header><h2 id="contract-editor-title"></h2><button class="btn" onclick="document.getElementById('contract-editor').close()">Fechar</button></header><form id="contract-form" onsubmit="saveContractRegistry(event)"><div id="contract-form-body"></div><footer><button class="btn" type="button" onclick="document.getElementById('contract-editor').close()">Cancelar</button><button class="btn primary" type="submit" id="contract-save">Salvar contrato</button></footer></form></dialog>
+<dialog id="cadastro-editor" class="admin-dialog"><header><h2 id="cadastro-editor-title"></h2><button class="btn" onclick="document.getElementById('cadastro-editor').close()">Fechar</button></header><form id="cadastro-form" onsubmit="saveCadastro(event)"><div id="cadastro-form-content"></div><footer><button class="btn" type="button" onclick="document.getElementById('cadastro-editor').close()">Cancelar</button><button class="btn primary" id="admin-save" type="submit">Salvar cadastro</button></footer></form></dialog>
+<dialog id="cadastro-history" class="admin-dialog"><header><h2>Histórico de alterações</h2><button class="btn" onclick="document.getElementById('cadastro-history').close()">Fechar</button></header><p>Últimas 200 alterações. O histórico completo permanece no banco e nos backups.</p><div id="cadastro-history-body"></div></dialog>
+<dialog id="global-search"><div class="search-head"><label for="global-query">Busca unificada</label><button class="btn" onclick="document.getElementById('global-search').close()">Fechar · Esc</button></div><input type="search" id="global-query" placeholder="Digite cliente, pessoa, serviço ou código…" oninput="searchEntities()"><div id="global-results" aria-live="polite"></div></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<!-- ═══════════ OVERLAYS ═══════════ -->
+<div class="overlay" id="ov-pessoa"><div class="ov-header"><button class="ov-back" onclick="closeOv('pessoa')">← Voltar</button><div><div class="ov-title" id="ovp-title"></div><div class="ov-sub" id="ovp-sub"></div></div></div><div class="ov-body" id="ovp-body"></div></div>
+<div class="overlay" id="ov-cliente"><div class="ov-header"><button class="ov-back" onclick="closeOv('cliente')">← Voltar</button><div><div class="ov-title" id="ovc-title"></div><div class="ov-sub" id="ovc-sub"></div></div></div><div class="ov-body" id="ovc-body"></div></div>
+<div class="overlay" id="ov-servico"><div class="ov-header"><button class="ov-back" onclick="closeOv('servico')">← Voltar</button><div><div class="ov-title" id="ovs-title"></div><div class="ov-sub" id="ovs-sub"></div></div></div><div class="ov-body" id="ovs-body"></div></div>
+
+<script src="bootstrap.js"></script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+# Dependência exclusiva da migração/persistência online; não altera o uso local.
+psycopg[binary]>=3.2,<4

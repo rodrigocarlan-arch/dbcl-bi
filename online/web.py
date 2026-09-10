@@ -6,7 +6,8 @@ from urllib.parse import unquote,urlsplit
 from .service import COOKIE
 from .auth import AuthError
 PUBLIC={'/login':'index.html','/login/':'index.html','/login/login.js':'login.js','/login/style.css':'style.css'}
-PRIVATE={'/':'index.html','/index.html':'index.html',**{('/'+f):f for f in ['bootstrap.js','core.js','app.js','v4.js','admin.js','contracts-admin.js','styles/base.css','styles/v4.css','vendor/chart.umd.js']}}
+PUBLIC.update({('/login/'+f):f for f in ['Lora-Regular.ttf','Tomorrow-Medium.ttf','dbcl-primary-green.png']})
+PRIVATE={'/':'index.html','/index.html':'index.html',**{('/'+f):f for f in ['bootstrap.js','core.js','app.js','v4.js','admin.js','contracts-admin.js','styles/base.css','styles/v4.css','vendor/chart.umd.js','styles/Lora-Regular.ttf','styles/Tomorrow-Medium.ttf','styles/Lora-OFL.txt','styles/Tomorrow-OFL.txt','styles/dbcl-solo-bege.png','styles/dbcl-primary-green.png']}}
 class Site:
  def __init__(self,service,private_root,artifact):self.service=service;self.root=Path(private_root);self.artifact=artifact
  def handle(self,method,path,headers,body=None):

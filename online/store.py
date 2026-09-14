@@ -63,10 +63,14 @@ class PgStore(Store):
         with self.connect() as con:
             row=con.execute('SELECT id,revision,source_sha256 FROM publications ORDER BY id DESC LIMIT 1').fetchone()
         return dict(row) if row else None
-    def artifact(self,name):
+    def artifact(self,name,publication_id=None):
         if name not in ('data.js','strategic-decisions.js','crm.json'):raise ValueError('Artefato não permitido')
+        if publication_id is not None and (type(publication_id) is not int or publication_id < 1):raise ValueError('Publicação inválida')
         with self.connect() as con:
-            row=con.execute('SELECT body ->> ? AS content FROM publications ORDER BY id DESC LIMIT 1',(name,)).fetchone()
+            if publication_id is None:
+                row=con.execute('SELECT body ->> ? AS content FROM publications ORDER BY id DESC LIMIT 1',(name,)).fetchone()
+            else:
+                row=con.execute('SELECT body ->> ? AS content FROM publications WHERE id=?',(name,publication_id)).fetchone()
         return row['content'] if row else None
     def catalog(self):
         content=self.artifact('crm.json')

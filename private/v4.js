@@ -15,9 +15,10 @@ function selectedMissingRates(){
 }
 function renderV4Context(){
   const h=sum(selectedMissingRates(),'h');
+  const pendingRevenue=(D.meta?.auditoria?.mensalistas_fonte?.pendencias_valores||[]).some(p=>!p.month||S.meses.includes(p.month));
   const partial=(['quarter','semester','year'].includes(S.periodKind)&&S.meses.length!==({quarter:3,semester:6,year:12}[S.periodKind]));
   const old=(Date.now()-new Date(D.meta.ultima_data_horas+'T12:00:00').getTime())/86400000>45;
-  $('v4-context').innerHTML=`<span>Receita <b>contratual cadastrada</b> · ${S.rate==='custo'?'custo interno':'valor técnico'} por cargo · status <b>atual</b> da carteira.</span><span>Horas gerais, times e áreas abrangem todas as carteiras.</span>${partial?'<strong>Período parcial: comparação suspensa.</strong>':''}${h?`<strong>${fmtH(h)}h sem tarifa: valores técnicos e margens incompletos.</strong>`:''}${old?'<strong>Fonte de horas com mais de 45 dias; revisar atualização.</strong>':''}<button onclick="go('confianca')">Ver regras e fontes →</button>`;
+  $('v4-context').innerHTML=`<span>Receita <b>contratual cadastrada</b> · ${S.rate==='custo'?'custo interno':'valor técnico'} por cargo · carteira por <b>competência</b> quando há baixa confiável.</span><span>Horas gerais, times e áreas abrangem todas as carteiras.</span>${partial?'<strong>Período parcial: comparação suspensa.</strong>':''}${h?`<strong>${fmtH(h)}h sem tarifa: valores técnicos e margens incompletos.</strong>`:''}${pendingRevenue?'<button class="revenue-warning" onclick="go(\'contratos\')">Receita incompleta: conferir mensalidades →</button>':''}${old?'<strong>Fonte de horas com mais de 45 dias; revisar atualização.</strong>':''}<button onclick="go('confianca')">Ver regras e fontes →</button>`;
   document.querySelectorAll('.sb-btn[data-s]').forEach(b=>b.setAttribute('aria-current',b.dataset.s===S.screen?'page':'false'));
 }
 function metric(label,value,note='',tone=''){return `<div class="kc"><div class="kc-l">${esc(label)}</div><div class="kc-v ${tone}">${value}</div><div class="kc-s">${esc(note)}</div></div>`;}

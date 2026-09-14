@@ -135,10 +135,9 @@ const C = v => (v||0) * rf();
 const M = (rec, custo) => (rec||0) - C(custo);
 
 function isActive(item){
-  if(typeof item.ativo==='boolean') return item.ativo;
-  if(typeof item.ok==='boolean') return item.ok;
-  const detail = item.cod ? D.servicos_det[item.cod] : null;
-  return detail ? detail.ativo!==false : true;
+  const detail = item?.cod ? D.servicos_det[item.cod] : null;
+  const source = item?.ativo_meses ? item : (detail || item);
+  return S.meses.some(month=>DBCLCore.activeAt(source,month));
 }
 function carteiraRows(rows){
   if(S.carteira==='todos') return rows;
@@ -146,7 +145,7 @@ function carteiraRows(rows){
 }
 function clientIsActive(name){
   const services = D.cli_det[name]?.svcs || [];
-  return services.some(service=>service.ativo!==false);
+  return services.some(service=>isActive(service));
 }
 function carteiraDescription(){
   return S.carteira==='ativos' ? 'carteira ativa' : S.carteira==='inativos' ? 'histórico inativo' : 'ativos e inativos';
@@ -171,6 +170,14 @@ function previousComparableMonths(months){ return DBCLCore.previousMonths(months
 
 function sumPMMonths(pm, months, key){
   return months.reduce((sum,month)=>sum+(pm?.[month]?.[key]||0),0);
+}
+function activeMonths(item, months){
+  const detail=item?.cod ? D.servicos_det[item.cod] : null;
+  const source=item?.ativo_meses ? item : (detail || item);
+  return months.filter(month=>DBCLCore.activeAt(source,month));
+}
+function sumFinancialPM(item, months, key){
+  return sumPMMonths(item.pm,activeMonths(item,months),key);
 }
 function sumHoursByMonths(pm, months){
   return months.reduce((sum,month)=>sum+(pm?.[month]||0),0);
@@ -199,24 +206,25 @@ Chart.defaults.plugins.legend.labels.boxWidth = 10;
 /* ───────── DADOS DERIVADOS (recalculados por período/tabela) ───────── */
 function mensalCalc(){
   return D.mensal.map(m => {
-    const hb = sumPM(m.pm,'h'), hp = sumPM(m.pm,'hp'), hi = sumPM(m.pm,'hi');
+    const months=activeMonths(m,S.meses);
+    const hb = sumPMMonths(m.pm,months,'h'), hp = sumPMMonths(m.pm,months,'hp'), hi = sumPMMonths(m.pm,months,'hi');
     const h = hb + hi;
-    const cRaw = sumPM(m.pm,'c'), rec = sumPM(m.pm,'r');
+    const cRaw = sumPMMonths(m.pm,months,'c'), rec = sumPMMonths(m.pm,months,'r');
     const custo = C(cRaw), margem = rec - custo;
     const mpct = rec>0 ? margem/rec*100 : null;
-    return {...m, _h:h,_hb:hb,_hp:hp,_hi:hi,_cRaw:cRaw,_custo:custo,_rec:rec,_margem:margem,_mpct:mpct,_recM:rec/Math.max(1,S.meses.length)};
+    return {...m, ativo:isActive(m), _h:h,_hb:hb,_hp:hp,_hi:hi,_cRaw:cRaw,_custo:custo,_rec:rec,_margem:margem,_mpct:mpct,_recM:rec/Math.max(1,months.length)};
   });
 }
 function lcCalc(){
   return D.lc.map(p => {
-    const h = sumPM(p.pm,'h'), cRaw = sumPMMonths(p.pm,AVAILABLE_MONTHS,'c');
+    const h = sumFinancialPM(p,S.meses,'h'), cRaw = sumFinancialPM(p,AVAILABLE_MONTHS,'c');
     const custo = C(cRaw), margem = (p.rec||0) - custo;
     return {...p, ativo:isActive(p), _h:h,_cRaw:cRaw,_custo:custo,_margem:margem,_mp:p.rec>0?margem/p.rec*100:null,_rph:h>0?(p.rec||0)/h:null};
   });
 }
 function judCalc(){
   return D.jud.map(j => {
-    const h = sumPM(j.pm,'h'), cRaw = sumPMMonths(j.pm,AVAILABLE_MONTHS,'c');
+    const h = sumFinancialPM(j,S.meses,'h'), cRaw = sumFinancialPM(j,AVAILABLE_MONTHS,'c');
     const ca = C(cRaw);
     const mse = (j.e||0) - ca;
     const be = Math.max(0, ca - (j.e||0));
@@ -410,6 +418,7 @@ function auditSummary(){
     (au.themis_alocacao?.linhas_possivelmente_duplicadas||0)>0,
     mensalSem.length>0,
     (crm.registros_incompletos||[]).length>0,
+    (crm.valores_financeiros_nao_confirmados||[]).length>0,
     (au.valores_pessoas?.registros||[]).length>0,
     (au.mapa_pastas?.registros_ambiguos||[]).length>0,
     (au.pessoas_themis?.nao_cadastradas||[]).length>0,
@@ -420,6 +429,8 @@ function renderContextBar(){
   const el=document.getElementById('global-context');
   if(!el) return;
   const period=periodRangeLabel(S.meses);
+  const selection=document.getElementById("analysis-selection");
+  if(selection)selection.textContent=`${period} · ${carteiraDescription()} · tabela ${S.rate}`;
   const cut=D.meta?.ultima_data_horas ? fmtDate(D.meta.ultima_data_horas) : mFullLbl(LAST_CLOSED_MONTH);
   const audit=auditSummary();
   const pendingRevenue=(D.meta?.auditoria?.mensalistas_fonte?.pendencias_valores||[]).some(p=>!p.month||S.meses.includes(p.month));
@@ -466,9 +477,9 @@ function renderPainel(){
   const previousHours=previousMonths.length===S.meses.length
     ? previousMonths.reduce((sum,m)=>sum+(D.kpm[m]?.h||0),0) : null;
   const previousRevenue=previousMonths.length===S.meses.length
-    ? men.reduce((sum,m)=>sum+sumPMMonths(m.pm,previousMonths,'r'),0) : null;
+    ? men.reduce((sum,m)=>sum+sumFinancialPM(m,previousMonths,'r'),0) : null;
   const previousMargin=previousMonths.length===S.meses.length
-    ? men.reduce((sum,m)=>sumPMMonths(m.pm,previousMonths,'r')-C(sumPMMonths(m.pm,previousMonths,'c'))+sum,0) : null;
+    ? men.reduce((sum,m)=>sumFinancialPM(m,previousMonths,'r')-C(sumFinancialPM(m,previousMonths,'c'))+sum,0) : null;
   const comparisonLabel=previousMonths.length===S.meses.length ? `vs. ${periodRangeLabel(previousMonths)}` : 'sem período anterior equivalente';
 
   const recSorted=men.filter(m=>m._rec>0).sort((a,b)=>b._rec-a._rec);
@@ -1123,6 +1134,7 @@ function renderAuditoria(){
     return parts.length===3&&S.meses.includes(`${parts[2]}-${parts[1].padStart(2,'0')}`);
   });
   const incompletos=crm.registros_incompletos||[];
+  const financeirosPendentes=crm.valores_financeiros_nao_confirmados||[];
   const semValores=au.valores_pessoas?.registros||[];
   const ambiguas=au.mapa_pastas?.registros_ambiguos||[];
   const pessoasOrfas=au.pessoas_themis?.nao_cadastradas||[];
@@ -1135,11 +1147,12 @@ function renderAuditoria(){
     duplicados.length>0,
     mensalSem.length>0,
     incompletos.length>0,
+    financeirosPendentes.length>0,
     semValores.length>0,
     ambiguas.length>0,
     pessoasOrfas.length>0,
   ].filter(Boolean).length;
-  const cadastroGroups=[incompletos.length,semValores.length,ambiguas.length,pessoasOrfas.length].filter(Boolean).length;
+  const cadastroGroups=[incompletos.length,financeirosPendentes.length,semValores.length,ambiguas.length,pessoasOrfas.length].filter(Boolean).length;
 
   document.getElementById('au-summary').innerHTML=`
     <div class="audit-stat"><div class="l">Integridade dos totais</div><div class="n ${reconciliado?'g':'r'}">${reconciliado?'Aprovada':'Bloqueada'}</div><div class="s">${reconciliado?'fonte e BI fecham mês a mês':'há divergência que impede publicação confiável'}</div></div>
@@ -1162,6 +1175,7 @@ function renderAuditoria(){
   if(duplicados.length) queue.push({priority:'high',label:'Conferir',issue:'Possíveis lançamentos duplicados',volume:`${duplicados.length} lançamentos · ${fmtH(duplicados.reduce((s,r)=>s+Number(r.horas||0),0))}h no período`,owner:'Operações jurídicas',source:'Themis',action:'Conferir data, pessoa, descrição e duração; corrigir somente na origem.',impact:'Podem superestimar horas e custo; não são excluídos automaticamente.',target:'au-sec-duplicados'});
   if(semValores.length) queue.push({priority:'high',label:'Alta',issue:'Pessoas sem valor de hora',volume:`${semValores.length} pessoa${semValores.length===1?'':'s'}`,owner:'Gestão de pessoas',source:'Pessoas e valores',action:'Preencher cargo e tabelas mensal, pontual e custo.',impact:'Impede custo e margem confiáveis.',target:'au-sec-pessoas'});
   if(incompletos.length) queue.push({priority:'data',label:'Cadastro',issue:'Campos essenciais vazios no CRM',volume:`${incompletos.length} contrato${incompletos.length===1?'':'s'} ativo${incompletos.length===1?'':'s'}`,owner:'Comercial / contratos',source:'CRM',action:'Completar cliente, responsável, tipo e vigência indicados.',impact:'Prejudica agrupamentos e responsáveis.',target:'au-sec-crm'});
+  if(financeirosPendentes.length) queue.push({priority:'high',label:'Alta',issue:'Valor financeiro não confirmado no CRM',volume:`${financeirosPendentes.length} campo${financeirosPendentes.length===1?'':'s'} com texto ou formato inválido`,owner:'Comercial / financeiro',source:'CRM',action:'Converter a condição comercial em valor numérico confirmado ou manter o campo financeiro em branco.',impact:'O campo não é tratado como zero; indicadores dependentes ficam incompletos.',target:null});
   if(ambiguas.length) queue.push({priority:'data',label:'Cadastro',issue:'Pastas associadas a múltiplos códigos',volume:`${ambiguas.length} pasta${ambiguas.length===1?'':'s'}`,owner:'Operações jurídicas',source:'Themis / CRM',action:'Separar ou padronizar a pasta para identificar uma única venda.',impact:'A pasta não pode ser usada para inferir a venda.',target:'au-sec-pastas'});
   if(pessoasOrfas.length) queue.push({priority:'data',label:'Cadastro',issue:'Pessoas do Themis sem cadastro',volume:`${pessoasOrfas.length} pessoa${pessoasOrfas.length===1?'':'s'}`,owner:'Gestão de pessoas',source:'Themis / Pessoas',action:'Conciliar grafia do nome e situação do cadastro.',impact:'Horas não entram corretamente nas visões de equipe.',target:'au-sec-orfas'});
   if(mensalComContexto.length) queue.push({priority:'ok',label:'Acompanhar',issue:'Receita zerada por decisão registrada',volume:`${mensalComContexto.length} cliente${mensalComContexto.length===1?'':'s'} · ${fmtK(mensalComContexto.reduce((s,m)=>s+m._custo,0))}`,owner:'Sócio responsável',source:'Cliente 360',action:'Acompanhar prazo, consumo de horas e retorno esperado.',impact:'Não é erro de receita; é investimento estratégico documentado.',target:'au-sec-mensal'});
@@ -1171,6 +1185,7 @@ function renderAuditoria(){
     ...duplicados.map(r=>['Possível duplicidade','Período selecionado','Conferir',r.data||'',r.pessoa||'',`${r.cliente||''} · ${r.descricao||''}`,1,r.horas||0,'Operações jurídicas','Themis','Conferir na origem antes de excluir']),
     ...mensalSemTodos.map(m=>['Receita zero','Período selecionado',activeClientDecision(m.cli)?'Acompanhar':'Alta',m.cli,m.cli,activeClientDecision(m.cli)?.title||'Sem explicação registrada',1,m._h,'Financeiro + sócio responsável','Mensalistas / Cliente 360',activeClientDecision(m.cli)?'Acompanhar prazo e retorno':'Cadastrar receita ou registrar decisão']),
     ...incompletos.map(r=>['Cadastro CRM','Contratos ativos','Cadastro',r.codigo||'',r.cliente||'',(r.campos||[]).join(', '),1,'','Comercial / contratos','CRM','Completar os campos essenciais']),
+    ...financeirosPendentes.map(r=>['Valor financeiro CRM','Histórico completo','Alta',r.codigo||'', '', `${r.campo||''}: ${r.valor||''} · linha ${r.linha_origem||'—'}`,1,'','Comercial / financeiro','CRM','Converter para valor numérico confirmado']),
     ...semValores.map(r=>['Valor de hora','Cadastro atual','Alta',r.pessoa||'',r.pessoa||'',(r.campos||[]).join(', '),1,'','Gestão de pessoas','Pessoas e valores','Preencher cargo e tabelas de valor']),
     ...ambiguas.map(r=>['Pasta ambígua','Histórico completo','Cadastro',r.pasta||'','', (r.codigos||[]).join(', '),r.codigos?.length||0,'','Operações jurídicas','Themis / CRM','Padronizar a pasta para uma única venda']),
     ...pessoasOrfas.map(r=>['Pessoa não conciliada','Histórico completo','Cadastro',r.pessoa_origem||'',r.pessoa_origem||'',`Último mês: ${r.ultimo_mes||'—'}`,1,r.horas||0,'Gestão de pessoas','Themis / Pessoas','Conciliar nome e situação cadastral']),
@@ -1285,7 +1300,7 @@ function openCliente(nome){
   const marginPct=men&&men._rec>0?men._margem/men._rec*100:null;
   const priorMonths=previousComparableMonths(S.meses);
   const priorMargin=men&&priorMonths.length===S.meses.length
-    ? sumPMMonths(men.pm,priorMonths,'r')-C(sumPMMonths(men.pm,priorMonths,'c')) : null;
+    ? sumFinancialPM(men,priorMonths,'r')-C(sumFinancialPM(men,priorMonths,'c')) : null;
   let stance='MONITORAR', confidence='média', headline='Leitura econômica ainda parcial', rationale='A base atual permite acompanhar esforço e custo, mas não contém todos os sinais comerciais e relacionais do cliente.', decision='Validar contexto comercial antes de ampliar ou reduzir a exposição.';
   if(recMissing&&activeStrategy){
     stance='DECISÃO REGISTRADA'; confidence=activeStrategy.startMonth&&activeStrategy.endMonth?'alta':'média'; headline='Receita zero explicada por contexto estratégico';

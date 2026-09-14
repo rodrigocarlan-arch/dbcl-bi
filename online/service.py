@@ -31,9 +31,13 @@ class Service:
             identity=self.auth.authenticate(cookies[COOKIE].value if COOKIE in cookies else None)
             if method=='GET' and path=='/api/status' and self.publication is not None:
                 snap=self.store.snapshot();published=self.publication()
-                return result(200,{'owner':identity.email,'local_only':False,'ready':published is not None,'enabled':bool(snap['settings'].get('enabled')),'contracts_enabled':bool(snap['settings'].get('contracts_enabled')),'revision':snap['revision'],'published_revision':published['revision'] if published else None,'pending':not published or published['revision']!=snap['revision'],'job':{'state':'unavailable','message':'A regeneração online ainda não está conectada. Alterações salvas exigem nova geração dos indicadores.'}})
+                return result(200,{'owner':identity.email,'local_only':False,'ready':published is not None,'enabled':bool(snap['settings'].get('enabled')),'contracts_enabled':bool(snap['settings'].get('contracts_enabled')),'revision':snap['revision'],'published_revision':published['revision'] if published else None,'publication_id':published['id'] if published else None,'pending':not published or published['revision']!=snap['revision'],'job':{'state':'unavailable','message':'A regeneração online ainda não está conectada. Alterações salvas exigem nova geração dos indicadores.'}})
             if method=='GET' and path=='/api/cadastros':return result(200,self.store.snapshot())
             if method=='GET' and path=='/api/history':return result(200,self.store.history())
+            if method=='POST' and path=='/api/backup':
+                from .backup import export
+                backup=export(self.store)
+                return result(200,{'backup':backup,'filename':'dbcl-cadastros-'+backup['sha256'][:12]+'.json','message':'Backup dos cadastros e histórico preparado. Guarde o arquivo em local privado.'})
             if method=='GET' and path=='/api/crm':
                 if self.catalog is None:return result(503,{'error':'Catálogo CRM online ainda não publicado'})
                 return result(200,self.catalog())

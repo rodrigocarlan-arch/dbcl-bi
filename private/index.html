@@ -51,6 +51,8 @@
 <main class="main" id="main-content">
 <header class="workspace-header"><div class="workspace-title"><button class="mobile-menu" onclick="document.body.classList.toggle('nav-open')" aria-label="Abrir navegação">☰</button><span>GESTÃO DO ESCRITÓRIO</span><b>DBCL <span class="version">V4</span></b></div><div class="workspace-actions"><button class="search-trigger" onclick="openSearch()">Buscar clientes, pessoas e serviços <kbd>⌘ K</kbd></button><button class="btn" onclick="exportExecutive()">Exportar resumo</button><button class="btn" onclick="window.print()" aria-label="Imprimir a visão atual">Imprimir</button></div></header>
 
+<!-- Critérios preservados em um painel expansível, com seleção sempre visível. -->
+<details class="analysis-controls"><summary><span class="analysis-label">Sua análise</span><span id="analysis-selection">Carregando período…</span><span class="analysis-edit">Ajustar filtros <span aria-hidden="true">⌄</span></span></summary>
 <!-- ═══════════ TOPBAR ═══════════ -->
 <div class="topbar">
   <span class="tb-label">Período</span>
@@ -86,7 +88,7 @@
   <span class="rt-note" id="rt-note">Valor técnico pela tabela mensal</span>
 </div>
 
-<div class="context-strip" id="global-context" aria-live="polite"></div><div id="v4-context" class="v4-context" aria-live="polite"></div>
+<div class="context-strip" id="global-context" aria-live="polite"></div></details><div id="v4-context" class="v4-context" aria-live="polite"></div>
 
 <!-- ═══════════ PAINEL GERAL ═══════════ -->
 <section class="screen active" id="screen-painel">

@@ -2,7 +2,7 @@
 import gzip,json,mimetypes
 from pathlib import Path
 from http.cookies import SimpleCookie,CookieError
-from urllib.parse import unquote,urlsplit
+from urllib.parse import unquote,urlsplit,parse_qs
 from .service import COOKIE
 from .auth import AuthError
 PUBLIC={'/login':'index.html','/login/':'index.html','/login/login.js':'login.js','/login/style.css':'style.css'}
@@ -11,7 +11,7 @@ PRIVATE={'/':'index.html','/index.html':'index.html',**{('/'+f):f for f in ['boo
 class Site:
  def __init__(self,service,private_root,artifact):self.service=service;self.root=Path(private_root);self.artifact=artifact
  def handle(self,method,path,headers,body=None):
-  h={k.lower():v for k,v in headers.items()};path=unquote(urlsplit(path).path)
+  h={k.lower():v for k,v in headers.items()};parsed=urlsplit(path);query=parse_qs(parsed.query,keep_blank_values=True);path=unquote(parsed.path)
   common={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'no-referrer'}
   def reply(status,content,ctype='text/plain; charset=utf-8',extra=None):
    data=content.encode() if isinstance(content,str) else content;out={**common,'Content-Type':ctype,**(extra or {})}
@@ -29,7 +29,11 @@ class Site:
   except (AuthError,CookieError):return reply(303,'',extra={'Location':'/login'})
   try:
    if path in ('/data.js','/strategic-decisions.js'):
-    content=self.artifact(path[1:])
+    if 'publication' in query:
+     values=query['publication']
+     if len(values)!=1 or not values[0].isascii() or not values[0].isdigit() or not 0<len(values[0])<=18 or int(values[0])<1:return reply(400,'Publicação inválida')
+     content=self.artifact(path[1:],int(values[0]))
+    else:content=self.artifact(path[1:])
     if content is None:return reply(503,'Primeira publicação dos indicadores ainda pendente')
     return reply(200,content,'application/javascript; charset=utf-8')
    if path not in PRIVATE:return reply(404,'Arquivo indisponível')
